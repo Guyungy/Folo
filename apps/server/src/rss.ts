@@ -25,18 +25,58 @@ const text = (value: unknown): string | null => {
 const stableId = (prefix: string, value: string) =>
   `${prefix}_${createHash("sha256").update(value).digest("hex").slice(0, 24)}`
 
+const knownFeedFallbacks = new Map<string, string[]>([
+  [
+    "https://cn.wsj.com/rss-news-and-feeds/zh-hans",
+    ["https://plink.anyfeeder.com/wsj/cn", "https://feedx.net/rss/wsj.xml"],
+  ],
+  [
+    "https://cn.wsj.com/zh-hans/rss",
+    ["https://plink.anyfeeder.com/wsj/cn", "https://feedx.net/rss/wsj.xml"],
+  ],
+])
+
+const fetchFeedDocument = async (requestedUrl: string) => {
+  const normalizedUrl = requestedUrl.trim().replace(/\/$/, "")
+  const candidates = [requestedUrl.trim(), ...(knownFeedFallbacks.get(normalizedUrl) ?? [])]
+  const failures: string[] = []
+
+  for (const candidate of candidates) {
+    try {
+      const response = await fetch(candidate, {
+        headers: {
+          accept:
+            "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.1",
+          "user-agent": "Folo/1.13.0 (+https://github.com/RSSNext/Folo)",
+        },
+        signal: AbortSignal.timeout(20_000),
+      })
+      if (!response.ok) {
+        failures.push(`${new URL(candidate).hostname}: HTTP ${response.status}`)
+        continue
+      }
+      const content = await response.text()
+      const document = parser.parse(content) as Record<string, unknown>
+      const rssChannel = (document.rss as { channel?: Record<string, unknown> } | undefined)
+        ?.channel
+      const atomFeed = document.feed as Record<string, unknown> | undefined
+      if (rssChannel || atomFeed) return { atomFeed, contentUrl: candidate, rssChannel }
+      failures.push(`${new URL(candidate).hostname}: not RSS or Atom`)
+    } catch (error) {
+      failures.push(
+        `${new URL(candidate).hostname}: ${error instanceof Error ? error.message : "request failed"}`,
+      )
+    }
+  }
+
+  throw new Error(`Unable to load feed (${failures.join("; ")})`)
+}
+
 export const refreshFeed = async (url: string): Promise<Feed> => {
-  const response = await fetch(url, {
-    headers: { "user-agent": "Folo-MVP/1.0" },
-    signal: AbortSignal.timeout(20_000),
-  })
-  if (!response.ok) throw new Error(`Feed request failed with ${response.status}`)
-  const document = parser.parse(await response.text()) as Record<string, unknown>
-  const rssChannel = (document.rss as { channel?: Record<string, unknown> } | undefined)?.channel
-  const atomFeed = document.feed as Record<string, unknown> | undefined
+  const { atomFeed, contentUrl, rssChannel } = await fetchFeedDocument(url)
   const source = rssChannel ?? atomFeed
   if (!source) throw new Error("Unsupported RSS or Atom document")
-  const feedId = stableId("feed", url)
+  const feedId = stableId("feed", contentUrl)
   const atomLinks = array(
     source.link as Record<string, unknown> | Record<string, unknown>[] | undefined,
   )
@@ -44,7 +84,7 @@ export const refreshFeed = async (url: string): Promise<Feed> => {
     text(source.link) ?? text(atomLinks.find((link) => link["@_rel"] !== "self")?.["@_href"])
   const feed: Feed = {
     id: feedId,
-    url,
+    url: contentUrl,
     title: text(source.title),
     description: text(source.description ?? source.subtitle),
     image: text((source.image as { url?: unknown } | undefined)?.url) ?? text(source.logo),

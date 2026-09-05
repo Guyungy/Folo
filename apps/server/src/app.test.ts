@@ -96,6 +96,34 @@ describe("local data service", () => {
     })
   })
 
+  it("falls back to a compatible mirror when the WSJ feed blocks automated requests", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response("blocked", { status: 401 }))
+      .mockResolvedValueOnce(
+        new Response(
+          `<?xml version="1.0"?><rss version="2.0"><channel><title>WSJ 中文</title><link>https://cn.wsj.com/</link><item><title>Test article</title><link>https://cn.wsj.com/articles/test</link><guid>test</guid></item></channel></rss>`,
+          { headers: { "content-type": "text/xml" } },
+        ),
+      )
+    vi.stubGlobal("fetch", fetchMock)
+    try {
+      const response = await app.request("/subscriptions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: "https://cn.wsj.com/rss-news-and-feeds/zh-hans" }),
+      })
+      expect(response.status).toBe(200)
+      expect(await response.json()).toMatchObject({
+        code: 0,
+        feed: { title: "WSJ 中文", url: "https://plink.anyfeeder.com/wsj/cn" },
+      })
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it("streams chat deltas before the provider finishes and includes selected article content", async () => {
     vi.stubEnv("OPENAI_BASE_URL", "http://provider.test/v1")
     vi.stubEnv("OPENAI_API_KEY", "test")
