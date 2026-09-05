@@ -7,9 +7,8 @@ import { getIpcContext, IpcMethod, IpcService } from "electron-ipc-decorator"
 import path from "pathe"
 import type { ModelResult } from "vscode-languagedetection"
 
+import { getLocalApp } from "../../lib/local-app"
 import { detectCodeStringLanguage } from "../../modules/language-detection"
-
-const TTS_SERVICE_URL = "https://tts.folo.is"
 
 interface ReadabilityInput {
   url: string
@@ -104,7 +103,8 @@ export class ReaderService extends IpcService {
     }
 
     try {
-      const response = await fetch(`${TTS_SERVICE_URL}/tts`, {
+      const localApp = await getLocalApp()
+      const response = await localApp.request("/ai/tts", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -133,7 +133,8 @@ export class ReaderService extends IpcService {
   async getVoices() {
     const window = BrowserWindow.fromWebContents(getIpcContext().sender)
     try {
-      const response = await fetch(`${TTS_SERVICE_URL}/voices`)
+      const localApp = await getLocalApp()
+      const response = await localApp.request("/ai/voices")
       if (!response.ok) {
         throw new Error(await readTtsErrorMessage(response))
       }

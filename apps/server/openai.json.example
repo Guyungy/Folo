@@ -1,0 +1,7 @@
+{
+  "baseURL": "https://api.openai.com/v1",
+  "apiKey": "",
+  "model": "",
+  "speechModel": "tts-1",
+  "transcriptionModel": "whisper-1"
+}

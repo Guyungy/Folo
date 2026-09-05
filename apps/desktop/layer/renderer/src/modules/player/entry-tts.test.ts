@@ -62,6 +62,7 @@ vi.mock("~/atoms/player", () => ({
 }))
 
 vi.mock("~/lib/api-client", () => ({
+  fetchFromLocalApp: (request: Request) => fetch(request),
   followClient: {
     api: {
       ai: {
@@ -167,20 +168,11 @@ describe("entry tts", () => {
     await playEntryTts("entry-1", { toastTitle: "Play TTS" })
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://tts.folo.is/tts",
-      expect.objectContaining({
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        signal: expect.any(AbortSignal),
-      }),
-    )
-
-    const requestInit = fetchMock.mock.calls[0]?.[1]
-    expect(requestInit).toBeDefined()
-    expect(JSON.parse(String(requestInit?.body))).toEqual({
+    const request = fetchMock.mock.calls[0]?.[0]
+    expect(request).toBeInstanceOf(Request)
+    expect((request as Request).url).toBe("http://local/ai/tts")
+    expect((request as Request).method).toBe("POST")
+    expect(JSON.parse(await (request as Request).text())).toEqual({
       text: "Hello world",
       voice: "en-US-AvaMultilingualNeural",
     })
@@ -231,7 +223,6 @@ describe("entry tts", () => {
     }
 
     vi.stubGlobal("window", {
-      ...window,
       AudioContext: FakeAudioContext,
       clearInterval: globalThis.clearInterval,
       setInterval: globalThis.setInterval,

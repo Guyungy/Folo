@@ -23,7 +23,7 @@ import { useFeature } from "~/hooks/biz/useFeature"
 import { UrlBuilder } from "~/lib/url-builder"
 import { usePresentUserProfileModal } from "~/modules/profile/hooks"
 import { useSettingModal } from "~/modules/settings/modal/use-setting-modal-hack"
-import { signOut, useSession } from "~/queries/auth"
+import { useSession } from "~/queries/auth"
 import { useWallet } from "~/queries/wallet"
 
 import type { LoginProps } from "./LoginButton"
@@ -206,14 +206,6 @@ export const ProfileButton: FC<ProfileButtonProps> = memo((props) => {
             <DropdownMenuSeparator />
           </>
         )}
-        <DropdownMenuItem
-          className="pl-3"
-          data-testid="profile-menu-logout"
-          onClick={signOut}
-          icon={<i className="i-mgc-exit-cute-re" />}
-        >
-          {t("user_button.log_out")}
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

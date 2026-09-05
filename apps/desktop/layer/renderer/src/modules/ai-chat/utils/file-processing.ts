@@ -1,5 +1,3 @@
-import { followApi } from "~/lib/api-client"
-
 import type { FileAttachment } from "../store/types"
 import type { FileValidationResult } from "./file-validation"
 import { validateFile } from "./file-validation"
@@ -168,77 +166,24 @@ export async function uploadFileAttachment(
   fileAttachment: FileAttachment,
   onProgressUpdate?: (attachment: FileAttachment) => void,
 ): Promise<FileAttachment> {
-  try {
-    // Update status to uploading with 0% progress
-    let currentAttachment: FileAttachment = {
-      ...fileAttachment,
-      uploadStatus: "uploading" as const,
-      uploadProgress: 0,
-    }
-    onProgressUpdate?.(currentAttachment)
-
-    const { dataUrl } = fileAttachment
-    if (!dataUrl) {
-      throw new Error("No data URL found for file attachment")
-    }
-    const blob = await fetch(dataUrl).then((r) => r.blob())
-
-    // TODO: Replace with real progress tracking when followApi supports it
-    // Currently followApi.upload.uploadChatAttachment doesn't provide progress callbacks
-    // Future implementation could use XMLHttpRequest or a custom fetch wrapper
-
-    // Simulate realistic progress updates during upload
-    // This mimics a realistic upload progression pattern
-    const progressInterval = setInterval(() => {
-      if (currentAttachment.uploadProgress! < 85) {
-        // Start faster, then slow down (realistic network behavior)
-        const currentProgress = currentAttachment.uploadProgress || 0
-        const increment =
-          currentProgress < 50
-            ? Math.random() * 20 + 5 // Fast initial progress
-            : Math.random() * 8 + 2 // Slower progress as it approaches completion
-
-        currentAttachment = {
-          ...currentAttachment,
-          uploadProgress: Math.min(85, currentProgress + increment),
-        }
-        onProgressUpdate?.(currentAttachment)
-      }
-    }, 150)
-
-    try {
-      // Actual upload
-      const response = await followApi.upload.uploadChatAttachment({ file: blob })
-      const serverUrl = response.data.url
-
-      // Update to 100% and completed status
-      const completedAttachment: FileAttachment = {
-        ...fileAttachment,
-        serverUrl,
-        uploadStatus: "completed",
-        uploadProgress: 100,
-        errorMessage: undefined,
-      }
-
-      // Show 100% briefly before final callback
-      onProgressUpdate?.(completedAttachment)
-
-      return completedAttachment
-    } finally {
-      // Clear progress interval
-      clearInterval(progressInterval)
-    }
-  } catch (error) {
-    // Return attachment with error status
-    const errorAttachment: FileAttachment = {
+  if (!fileAttachment.dataUrl) {
+    return {
       ...fileAttachment,
       uploadStatus: "error",
       uploadProgress: undefined,
-      errorMessage: error instanceof Error ? error.message : "Upload failed",
+      errorMessage: "No local file data found",
     }
-
-    return errorAttachment
   }
+
+  const completedAttachment: FileAttachment = {
+    ...fileAttachment,
+    serverUrl: fileAttachment.dataUrl,
+    uploadStatus: "completed",
+    uploadProgress: 100,
+    errorMessage: undefined,
+  }
+  onProgressUpdate?.(completedAttachment)
+  return completedAttachment
 }
 
 export async function processAndUploadFile(

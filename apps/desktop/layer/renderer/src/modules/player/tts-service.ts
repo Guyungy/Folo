@@ -1,7 +1,8 @@
 import type { EntryModel } from "@follow/store/entry/types"
 import { parseHtml } from "@follow/utils/html"
 
-export const TTS_SERVICE_URL = "https://tts.folo.is"
+import { fetchFromLocalApp } from "~/lib/api-client"
+
 export const DEFAULT_TTS_VOICE = "en-US-AvaMultilingualNeural"
 
 export interface TtsVoice {
@@ -9,10 +10,6 @@ export interface TtsVoice {
   Gender: string
   Locale: string
   ShortName: string
-}
-
-interface TtsVoiceResponse {
-  voices: TtsVoice[]
 }
 
 interface TtsErrorResponse {
@@ -57,14 +54,25 @@ const readTtsErrorMessage = async (response: Response) => {
 }
 
 export const fetchTtsVoices = async (signal?: AbortSignal) => {
-  const response = await fetch(`${TTS_SERVICE_URL}/voices`, { signal })
-
-  if (!response.ok) {
-    throw new Error(await readTtsErrorMessage(response))
-  }
-
-  const data = (await response.json()) as TtsVoiceResponse
-  return data.voices ?? []
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError")
+  const voices = [
+    "alloy",
+    "ash",
+    "ballad",
+    "coral",
+    "echo",
+    "fable",
+    "nova",
+    "onyx",
+    "sage",
+    "shimmer",
+  ]
+  return voices.map((voice) => ({
+    FriendlyName: `OpenAI ${voice}`,
+    Gender: "Neutral",
+    Locale: "Multilingual",
+    ShortName: voice,
+  })) satisfies TtsVoice[]
 }
 
 export const requestTts = async ({
@@ -83,17 +91,17 @@ export const requestTts = async ({
 
   const normalizedVoice = voice?.trim()
 
-  const response = await fetch(`${TTS_SERVICE_URL}/tts`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      text: normalizedText,
-      ...(normalizedVoice ? { voice: normalizedVoice } : {}),
+  const response = await fetchFromLocalApp(
+    new Request("http://local/ai/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: normalizedText,
+        ...(normalizedVoice ? { voice: normalizedVoice } : {}),
+      }),
+      signal,
     }),
-    signal,
-  })
+  )
 
   if (!response.ok) {
     throw new Error(await readTtsErrorMessage(response))

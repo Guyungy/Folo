@@ -2,6 +2,8 @@ import { env } from "@follow/shared/env.desktop"
 import type { HttpChatTransportInitOptions, UIMessageChunk } from "ai"
 import { HttpChatTransport, parseJsonEventStream, uiMessageChunkSchema } from "ai"
 
+import { fetchFromLocalApp } from "~/lib/api-client"
+
 import { getAIModelState } from "../atoms/session"
 import { AIPersistService } from "../services"
 import type { BizUIMessage } from "./types"
@@ -51,6 +53,7 @@ export function createChatTransport({ onValue, titleHandler }: CreateChatTranspo
     // Custom fetch configuration
     api: `${env.VITE_API_URL}/ai/chat`,
     credentials: "include",
+    fetch: (input, init) => fetchFromLocalApp(new Request(input, init)),
     // Add selected model to request body
     body: () => {
       const modelState = getAIModelState()

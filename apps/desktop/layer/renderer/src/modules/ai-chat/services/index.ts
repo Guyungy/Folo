@@ -4,7 +4,6 @@ import { aiChatMessagesTable, aiChatTable } from "@follow/database/schemas/index
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm"
 
 import { getI18n } from "~/i18n"
-import { followClient } from "~/lib/api-client"
 
 import { AI_CHAT_SPECIAL_ID_PREFIX } from "../constants"
 import type { BizUIMessage, BizUIMessagePart, BizUIMetadata } from "../store/types"
@@ -474,9 +473,6 @@ class AIPersistServiceStatic {
     await db.delete(aiChatTable).where(eq(aiChatTable.chatId, chatId))
     // Clear session from cache
     this.clearSessionCache(chatId)
-    await followClient.api.aiChatSessions.delete({ chatId }).catch((error) => {
-      console.error("Failed to delete remote chat session:", error)
-    })
   }
 
   async updateSessionTitle(chatId: string, title: string) {
@@ -520,11 +516,6 @@ class AIPersistServiceStatic {
 
       // Clear deleted sessions from cache
       chatIdsToDelete.forEach((chatId) => this.clearSessionCache(chatId))
-      for (const chatId of chatIdsToDelete) {
-        await followClient.api.aiChatSessions.delete({ chatId }).catch((error) => {
-          console.error("Failed to delete remote chat sessions:", error)
-        })
-      }
     }
   }
 }

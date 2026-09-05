@@ -17,10 +17,7 @@ export const useChatHistory = () => {
     aiChatSessionStoreActions.clearError()
 
     try {
-      // 1) Always hydrate latest local first so UI updates immediately
       await AIChatSessionService.loadSessionsFromDb()
-      // 2) Then sync remote → upsert into local DB → reload from DB inside service
-      await aiChatSessionStoreActions.fetchRemoteSessions()
     } catch (error) {
       console.error("Failed to load chat history:", error)
       aiChatSessionStoreActions.setError(error instanceof Error ? error.message : "Unknown error")

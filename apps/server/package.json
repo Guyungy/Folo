@@ -1,0 +1,22 @@
+{
+  "name": "@follow/server",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    ".": "./src/app.ts"
+  },
+  "dependencies": {
+    "fast-xml-parser": "5.11.1",
+    "hono": "4.12.28",
+    "pathe": "2.0.3"
+  },
+  "devDependencies": {
+    "tsx": "4.23.0",
+    "typescript": "catalog:",
+    "vitest": "4.1.10"
+  }
+}
