@@ -116,7 +116,10 @@ describe("local data service", () => {
       expect(response.status).toBe(200)
       expect(await response.json()).toMatchObject({
         code: 0,
-        feed: { title: "WSJ 中文", url: "https://plink.anyfeeder.com/wsj/cn" },
+        feed: {
+          title: "WSJ 中文",
+          url: "https://news.google.com/rss/search?q=site%3Acn.wsj.com&hl=zh-CN&gl=CN&ceid=CN%3Azh-Hans",
+        },
       })
       expect(fetchMock).toHaveBeenCalledTimes(2)
     } finally {

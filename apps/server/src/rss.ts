@@ -28,11 +28,19 @@ const stableId = (prefix: string, value: string) =>
 const knownFeedFallbacks = new Map<string, string[]>([
   [
     "https://cn.wsj.com/rss-news-and-feeds/zh-hans",
-    ["https://plink.anyfeeder.com/wsj/cn", "https://feedx.net/rss/wsj.xml"],
+    [
+      "https://news.google.com/rss/search?q=site%3Acn.wsj.com&hl=zh-CN&gl=CN&ceid=CN%3Azh-Hans",
+      "https://plink.anyfeeder.com/wsj/cn",
+      "https://feedx.net/rss/wsj.xml",
+    ],
   ],
   [
     "https://cn.wsj.com/zh-hans/rss",
-    ["https://plink.anyfeeder.com/wsj/cn", "https://feedx.net/rss/wsj.xml"],
+    [
+      "https://news.google.com/rss/search?q=site%3Acn.wsj.com&hl=zh-CN&gl=CN&ceid=CN%3Azh-Hans",
+      "https://plink.anyfeeder.com/wsj/cn",
+      "https://feedx.net/rss/wsj.xml",
+    ],
   ],
 ])
 
