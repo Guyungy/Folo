@@ -23,6 +23,7 @@ import { FeedIcon } from "~/modules/feed/feed-icon"
 import { FeedTitle } from "~/modules/feed/feed-title"
 import { getPreferredTitle } from "~/store/feed/hooks"
 
+import { entryHtmlToPlainText } from "../plain-text"
 import { StarIcon } from "../star-icon"
 import type { UniversalItemProps } from "../types"
 
@@ -87,6 +88,11 @@ export function ListItem({
   const rid = `list-item-${entryId}`
 
   const bilingual = useGeneralSettingKey("translationMode") === "bilingual"
+  const description = useMemo(() => entryHtmlToPlainText(entry?.description), [entry?.description])
+  const translatedDescription = useMemo(
+    () => entryHtmlToPlainText(translation?.description),
+    [translation?.description],
+  )
 
   const iconEntry: FeedIconEntry = useMemo(
     () => ({
@@ -111,12 +117,7 @@ export function ListItem({
     if (translation?.title && translation?.title !== entry?.title && !simple && bilingual) {
       lineClampTitle += 1
     }
-    if (
-      translation?.description &&
-      translation?.description !== entry?.description &&
-      !simple &&
-      bilingual
-    ) {
+    if (translatedDescription && translatedDescription !== description && !simple && bilingual) {
       lineClampDescription += 1
     }
 
@@ -128,14 +129,7 @@ export function ListItem({
       title: envIsSafari ? `line-clamp-[${lineClampTitle}]` : "",
       description: envIsSafari ? `line-clamp-[${lineClampDescription}]` : "",
     }
-  }, [
-    simple,
-    translation?.description,
-    translation?.title,
-    entry?.description,
-    entry?.title,
-    bilingual,
-  ])
+  }, [simple, translatedDescription, translation?.title, description, entry?.title, bilingual])
 
   const dimRead = useGeneralSettingKey("dimRead")
   // NOTE: prevent 0 height element, react virtuoso will not stop render any more
@@ -217,8 +211,8 @@ export function ListItem({
           ) : (
             <EntryTranslation
               className={cn("autospace-normal hyphens-auto", lineClamp.description)}
-              source={entry?.description}
-              target={translation?.description}
+              source={description}
+              target={translatedDescription}
             />
           )}
           {!!isInCollection && <StarIcon className="absolute right-0 top-0" />}
@@ -233,8 +227,8 @@ export function ListItem({
           >
             <EntryTranslation
               className={cn("autospace-normal hyphens-auto", lineClamp.description)}
-              source={entry?.description}
-              target={translation?.description}
+              source={description}
+              target={translatedDescription}
             />
           </div>
         )}

@@ -32,6 +32,7 @@ import { FeedTitle } from "~/modules/feed/feed-title"
 import { HighlightedText } from "~/modules/spotlight/HighlightedText"
 import { getPreferredTitle } from "~/store/feed/hooks"
 
+import { entryHtmlToPlainText } from "../plain-text"
 import { StarIcon } from "../star-icon"
 import { readableContentMaxWidth } from "../styles"
 import type { EntryItemStatelessProps, UniversalItemProps } from "../types"
@@ -95,6 +96,11 @@ export function AllItem({ entryId, translation, currentFeedTitle }: UniversalIte
   const inbox = useInboxById(entry?.inboxId)
 
   const bilingual = useGeneralSettingKey("translationMode") === "bilingual"
+  const description = useMemo(() => entryHtmlToPlainText(entry?.description), [entry?.description])
+  const translatedDescription = useMemo(
+    () => entryHtmlToPlainText(translation?.description),
+    [translation?.description],
+  )
 
   const iconEntry: FeedIconEntry = useMemo(
     () => ({
@@ -119,7 +125,7 @@ export function AllItem({ entryId, translation, currentFeedTitle }: UniversalIte
     if (translation?.title && !simple && bilingual) {
       lineClampTitle += 1
     }
-    if (translation?.description && !simple && bilingual) {
+    if (translatedDescription && !simple && bilingual) {
       lineClampDescription += 1
     }
 
@@ -131,7 +137,7 @@ export function AllItem({ entryId, translation, currentFeedTitle }: UniversalIte
       title: envIsSafari ? `line-clamp-[${lineClampTitle}]` : "",
       description: envIsSafari ? `line-clamp-[${lineClampDescription}]` : "",
     }
-  }, [simple, translation?.description, translation?.title, bilingual])
+  }, [simple, translatedDescription, translation?.title, bilingual])
 
   const dimRead = useGeneralSettingKey("dimRead")
   // NOTE: prevent 0 height element, react virtuoso will not stop render any more
@@ -178,8 +184,8 @@ export function AllItem({ entryId, translation, currentFeedTitle }: UniversalIte
             ) : (
               <EntryTranslation
                 className={cn("inline-flex items-center hyphens-auto", lineClamp.description)}
-                source={entry?.description}
-                target={translation?.description}
+                source={description}
+                target={translatedDescription}
               />
             )}
           </EllipsisHorizontalTextWithTooltip>
@@ -194,8 +200,8 @@ export function AllItem({ entryId, translation, currentFeedTitle }: UniversalIte
         >
           <EntryTranslation
             className={cn("hyphens-auto", lineClamp.description)}
-            source={entry?.description}
-            target={translation?.description}
+            source={description}
+            target={translatedDescription}
           />
         </div>
       </div>
