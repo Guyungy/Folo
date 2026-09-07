@@ -125,7 +125,9 @@ export const refreshFeed = async (url: string): Promise<Feed> => {
   const { atomFeed, contentUrl, rssChannel } = await fetchFeedDocument(url)
   const source = rssChannel ?? atomFeed
   if (!source) throw new Error("Unsupported RSS or Atom document")
-  const feedId = stableId("feed", contentUrl)
+  const existingFeed = db.prepare("SELECT id FROM feeds WHERE url = ?").get(contentUrl) as
+    { id: string } | undefined
+  const feedId = existingFeed?.id ?? stableId("feed", contentUrl)
   const atomLinks = array(
     source.link as Record<string, unknown> | Record<string, unknown>[] | undefined,
   )
