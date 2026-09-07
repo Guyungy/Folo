@@ -3,6 +3,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "import:follow-db": "tsx src/import-follow-db.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

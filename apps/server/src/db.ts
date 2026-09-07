@@ -56,6 +56,12 @@ db.exec(`
     PRIMARY KEY(user_id, entry_id),
     FOREIGN KEY(entry_id) REFERENCES entries(id) ON DELETE CASCADE
   );
+  CREATE TABLE IF NOT EXISTS summaries (
+    entry_id TEXT NOT NULL, summary TEXT NOT NULL, readability_summary TEXT,
+    created_at TEXT, language TEXT,
+    UNIQUE(entry_id, language),
+    FOREIGN KEY(entry_id) REFERENCES entries(id) ON DELETE CASCADE
+  );
 `)
 
 export const jsonValue = <T>(value: string | null): T | null =>

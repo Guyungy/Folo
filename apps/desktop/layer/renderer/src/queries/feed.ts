@@ -50,6 +50,7 @@ export const useFeedQuery = ({ id, url }: FeedQueryParams) =>
       url,
     }),
     {
+      retry: false,
       enabled:
         (!!id || !!url) && id !== ROUTE_FEED_PENDING && !id?.startsWith(ROUTE_FEED_IN_FOLDER),
     },

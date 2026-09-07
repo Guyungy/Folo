@@ -14,7 +14,7 @@ import {
 } from "./ai.js"
 import { articleContext } from "./chat-context.js"
 import { db, jsonValue } from "./db.js"
-import { refreshFeed } from "./rss.js"
+import { getRSSHubBaseURL, refreshFeed, setRSSHubBaseURL } from "./rss.js"
 import type { Entry, Feed } from "./types.js"
 
 type Variables = { userId: string }
@@ -130,9 +130,15 @@ app.post("/settings/openai/test", async (c) => {
   }
 })
 app.get("/ai/summary", async (c) => {
-  const row = db
-    .prepare("SELECT content,description FROM entries WHERE id=?")
-    .get(c.req.query("id") ?? "") as
+  const entryId = c.req.query("id") ?? ""
+  const language = c.req.query("language") ?? null
+  const imported = db
+    .prepare(
+      "SELECT summary,readability_summary FROM summaries WHERE entry_id=? AND (language=? OR language IS NULL) ORDER BY language IS NULL LIMIT 1",
+    )
+    .get(entryId, language) as { summary: string; readability_summary: string | null } | undefined
+  if (imported) return c.json(ok(imported.readability_summary || imported.summary))
+  const row = db.prepare("SELECT content,description FROM entries WHERE id=?").get(entryId) as
     { content: string | null; description: string | null } | undefined
   const content = row?.content ?? row?.description
   if (!content) return c.json(ok(null))
@@ -373,12 +379,34 @@ app.get("/better-auth/get-session", (c) => {
   })
 })
 
-app.get("/feeds", (c) => {
+app.get("/settings/rsshub", (c) => c.json(ok({ baseURL: getRSSHubBaseURL() })))
+app.put("/settings/rsshub", async (c) => {
+  try {
+    const body = await c.req.json<{ baseURL: string }>()
+    setRSSHubBaseURL(body.baseURL)
+    return c.json(ok({ baseURL: getRSSHubBaseURL() }))
+  } catch {
+    return c.json({ code: 400, message: "Invalid RSSHub base URL" }, 400)
+  }
+})
+
+app.get("/feeds", async (c) => {
   const id = c.req.query("id")
   const url = c.req.query("url")
-  const row = db
+  let row = db
     .prepare(`SELECT * FROM feeds WHERE ${id ? "id = ?" : "url = ?"}`)
     .get(id ?? url ?? "") as Record<string, unknown> | undefined
+  if (!row && url && !id) {
+    try {
+      const feed = await refreshFeed(url)
+      row = db.prepare("SELECT * FROM feeds WHERE id=?").get(feed.id) as Record<string, unknown>
+    } catch (error) {
+      return c.json(
+        { code: 422, message: error instanceof Error ? error.message : "Invalid feed" },
+        422,
+      )
+    }
+  }
   if (!row) return c.json({ code: 404, message: "Feed not found" }, 404)
   const entries = db
     .prepare("SELECT * FROM entries WHERE feed_id = ? ORDER BY published_at DESC LIMIT ?")

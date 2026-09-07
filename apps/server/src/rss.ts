@@ -25,6 +25,27 @@ const text = (value: unknown): string | null => {
 const stableId = (prefix: string, value: string) =>
   `${prefix}_${createHash("sha256").update(value).digest("hex").slice(0, 24)}`
 
+db.exec("CREATE TABLE IF NOT EXISTS local_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+export const getRSSHubBaseURL = () => {
+  const saved = db.prepare("SELECT value FROM local_settings WHERE key='rsshub_base_url'").get() as
+    { value: string } | undefined
+  return process.env.RSSHUB_BASE_URL || saved?.value || "https://rsshub.app"
+}
+export const setRSSHubBaseURL = (value: string) => {
+  const url = new URL(value.trim())
+  if (
+    !["http:", "https:"].includes(url.protocol) ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  )
+    throw new Error("RSSHub base URL must be HTTP(S) without credentials, query or fragment")
+  db.prepare(
+    "INSERT INTO local_settings VALUES ('rsshub_base_url', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+  ).run(url.href.replace(/\/$/, ""))
+}
+
 const knownFeedFallbacks = new Map<string, string[]>([
   [
     "https://cn.wsj.com/rss-news-and-feeds/zh-hans",
@@ -45,8 +66,21 @@ const knownFeedFallbacks = new Map<string, string[]>([
 ])
 
 const fetchFeedDocument = async (requestedUrl: string) => {
+  const input = requestedUrl.trim()
+  const parsed = new URL(input)
+  const isRSSHub = parsed.protocol === "rsshub:"
+  if (!["rsshub:", "http:", "https:"].includes(parsed.protocol))
+    throw new Error("Use an HTTP, HTTPS or rsshub:// feed URL")
+  if (parsed.username || parsed.password || !parsed.hostname) throw new Error("Invalid feed URL")
+  const identity = isRSSHub ? `rsshub://${parsed.host}${parsed.pathname}${parsed.search}` : input
+  const instance = new URL(getRSSHubBaseURL())
+  if (!["http:", "https:"].includes(instance.protocol))
+    throw new Error("RSSHub instance must use HTTP or HTTPS")
+  const rsshubTarget = `${instance.href.replace(/\/$/, "")}/${parsed.host}${parsed.pathname}${parsed.search}`
   const normalizedUrl = requestedUrl.trim().replace(/\/$/, "")
-  const candidates = [requestedUrl.trim(), ...(knownFeedFallbacks.get(normalizedUrl) ?? [])]
+  const candidates = isRSSHub
+    ? [rsshubTarget]
+    : [input, ...(knownFeedFallbacks.get(normalizedUrl) ?? [])]
   const failures: string[] = []
 
   for (const candidate of candidates) {
@@ -60,7 +94,13 @@ const fetchFeedDocument = async (requestedUrl: string) => {
         signal: AbortSignal.timeout(20_000),
       })
       if (!response.ok) {
-        failures.push(`${new URL(candidate).hostname}: HTTP ${response.status}`)
+        const reason =
+          response.status === 403
+            ? "access blocked by instance"
+            : response.status === 404
+              ? "route not found on instance"
+              : "upstream request failed"
+        failures.push(`${new URL(candidate).hostname}: HTTP ${response.status} (${reason})`)
         continue
       }
       const content = await response.text()
@@ -68,11 +108,12 @@ const fetchFeedDocument = async (requestedUrl: string) => {
       const rssChannel = (document.rss as { channel?: Record<string, unknown> } | undefined)
         ?.channel
       const atomFeed = document.feed as Record<string, unknown> | undefined
-      if (rssChannel || atomFeed) return { atomFeed, contentUrl: candidate, rssChannel }
+      if (rssChannel || atomFeed)
+        return { atomFeed, contentUrl: isRSSHub ? identity : candidate, rssChannel }
       failures.push(`${new URL(candidate).hostname}: not RSS or Atom`)
     } catch (error) {
       failures.push(
-        `${new URL(candidate).hostname}: ${error instanceof Error ? error.message : "request failed"}`,
+        `${new URL(candidate).hostname}: ${error instanceof Error && error.name === "TimeoutError" ? "request timed out after 20 seconds; retry or change the RSSHub instance" : error instanceof Error ? error.message : "request failed"}`,
       )
     }
   }

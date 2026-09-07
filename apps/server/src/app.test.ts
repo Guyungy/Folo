@@ -17,6 +17,47 @@ afterAll(() => {
 })
 
 describe("local data service", () => {
+  it("previews, subscribes and refreshes RSSHub routes without changing their identity", async () => {
+    const route = "rsshub://zaobao/znews/china?limit=5&filter=%E4%B8%AD%E5%9B%BD"
+    const mock = vi
+      .fn<typeof fetch>()
+      .mockImplementation(
+        async () =>
+          new Response(
+            '<rss version="2.0"><channel><title>Zaobao</title><item><guid>stable-article</guid><title>Article</title></item></channel></rss>',
+          ),
+      )
+    vi.stubGlobal("fetch", mock)
+    vi.stubEnv("RSSHUB_BASE_URL", "https://instance.test/rsshub")
+    try {
+      const preview = await app.request(`/feeds?url=${encodeURIComponent(route)}`)
+      const payload = await preview.json()
+      expect(preview.status).toBe(200)
+      expect(payload.data.feed.url).toBe(route)
+      expect(mock.mock.calls[0]?.[0]).toBe(
+        "https://instance.test/rsshub/zaobao/znews/china?limit=5&filter=%E4%B8%AD%E5%9B%BD",
+      )
+      const subscribed = await app.request("/subscriptions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: route }),
+      })
+      expect((await subscribed.json()).feed.id).toBe(payload.data.feed.id)
+      vi.stubEnv("RSSHUB_BASE_URL", "https://second.test")
+      expect((await app.request(`/feeds/refresh?id=${payload.data.feed.id}`)).status).toBe(200)
+      expect(mock.mock.calls[2]?.[0]).toBe(
+        "https://second.test/zaobao/znews/china?limit=5&filter=%E4%B8%AD%E5%9B%BD",
+      )
+      expect(
+        db.prepare("SELECT COUNT(*) count FROM entries WHERE feed_id=?").get(payload.data.feed.id),
+      ).toEqual({ count: 1 })
+      db.prepare("DELETE FROM subscriptions WHERE feed_id=?").run(payload.data.feed.id)
+      db.prepare("DELETE FROM feeds WHERE id=?").run(payload.data.feed.id)
+    } finally {
+      vi.unstubAllGlobals()
+      vi.unstubAllEnvs()
+    }
+  })
   it("provides a built-in local user without a session", async () => {
     const session = await app.request("/better-auth/get-session")
     expect(await session.json()).toMatchObject({

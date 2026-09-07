@@ -47,6 +47,7 @@ import { useSettingModal } from "~/modules/settings/modal/useSettingModal"
 import { feed as feedQuery, useFeedQuery } from "~/queries/feed"
 
 import { ViewSelectorRadioGroup } from "../shared/ViewSelectorRadioGroup"
+import { FeedRequestStatus } from "./FeedRequestStatus"
 import { FeedSummary } from "./FeedSummary"
 
 const formSchema = z.object({
@@ -165,8 +166,9 @@ export const FeedForm: Component<{
           }
           case feedQuery.isLoading: {
             return (
-              <div className="flex flex-1 items-center justify-center">
+              <div className="flex flex-1 flex-col items-center justify-center">
                 <LoadingCircle size="large" />
+                <FeedRequestStatus url={url} loading retry={() => void feedQuery.refetch()} />
               </div>
             )
           }
@@ -175,6 +177,12 @@ export const FeedForm: Component<{
               <div className="center grow flex-col gap-3">
                 <i className="i-mgc-close-cute-re size-7 text-red" />
                 <p>{t("feed_form.error_fetching_feed")}</p>
+                <FeedRequestStatus
+                  url={url}
+                  loading={feedQuery.isFetching}
+                  error={feedQuery.error}
+                  retry={() => void feedQuery.refetch()}
+                />
               </div>
             )
           }
@@ -195,6 +203,8 @@ export const FeedForm: Component<{
         feedQuery.data?.subscription,
         feedQuery.error,
         feedQuery.isLoading,
+        feedQuery.isFetching,
+        feedQuery.refetch,
         id,
         isInModal,
         onSuccess,
