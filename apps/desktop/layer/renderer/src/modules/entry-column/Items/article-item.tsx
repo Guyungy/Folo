@@ -1,4 +1,5 @@
 import { Skeleton } from "@follow/components/ui/skeleton/index.jsx"
+import { parseHtml } from "@follow/utils/html"
 import { cn } from "@follow/utils/utils"
 
 import { RelativeTime } from "~/components/ui/datetime"
@@ -17,6 +18,10 @@ export function ArticleItem({ entryId, translation }: UniversalItemProps) {
 ArticleItem.wrapperClassName = cn(readableContentMaxWidth, "pl-4 pr-3")
 
 export function ArticleItemStateLess({ entry, feed }: EntryItemStatelessProps) {
+  const description = entry.description
+    ? parseHtml(entry.description, { noMedia: true }).toText().replaceAll(/\s+/g, " ").trim()
+    : null
+
   return (
     <div className="group relative flex py-4">
       <FeedIcon target={feed} fallback className="mr-2 size-5" />
@@ -29,7 +34,7 @@ export function ArticleItemStateLess({ entry, feed }: EntryItemStatelessProps) {
         <div className="relative my-0.5 truncate break-words font-medium text-text">
           {entry.title}
         </div>
-        <div className="truncate text-[13px] text-text-secondary">{entry.description}</div>
+        <div className="truncate text-[13px] text-text-secondary">{description}</div>
       </div>
       {entry.media?.[0] && (
         <Media
